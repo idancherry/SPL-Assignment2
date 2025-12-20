@@ -5,54 +5,140 @@ public class SharedMatrix {
     private volatile SharedVector[] vectors = {}; // underlying vectors
 
     public SharedMatrix() {
-        // TODO: initialize empty matrix
+        vectors = new SharedVector[0];
     }
 
     public SharedMatrix(double[][] matrix) {
-        // TODO: construct matrix as row-major SharedVectors
+        load(true, matrix);
     }
 
     public void loadRowMajor(double[][] matrix) {
-        // TODO: replace internal data with new row-major matrix
+        load(true, matrix);
     }
 
     public void loadColumnMajor(double[][] matrix) {
-        // TODO: replace internal data with new column-major matrix
+        load(false, matrix);
     }
 
     public double[][] readRowMajor() {
-        // TODO: return matrix contents as a row-major double[][]
-        return null;
+        SharedVector[] local = vectors;
+        acquireAllVectorReadLocks(local);
+        try {
+            double[][] matrix;
+            int outer = local.length;
+            if (outer==0) return new double[0][];
+            int inner = local[0].length();
+            int rows;
+            int cols;
+            VectorOrientation ori = local[0].getOrientation();
+            if (ori ==VectorOrientation.ROW_MAJOR){
+                rows = outer;
+                cols= inner;
+
+                matrix = new double[rows][cols];
+                for (int i=0; i<rows; i++){
+                    if (local[i].length()!=cols) mismatchErr();
+                    for (int j=0; j<cols; j++){
+                        matrix[i][j] = local[i].get(j);
+                    }
+                }
+                return matrix;
+            }else{
+                cols= outer;
+                rows = inner;
+                matrix = new double[rows][cols];
+                for (int j = 0; j < cols; j++) {
+                    if (local[j].length() != rows) mismatchErr();
+                    for (int i = 0; i < rows; i++) {
+                        matrix[i][j] = local[j].get(i);
+                    }
+                }
+                return matrix;
+            }
+        } finally {
+            releaseAllVectorReadLocks(local);
+        }
     }
 
     public SharedVector get(int index) {
-        // TODO: return vector at index
-        return null;
+        SharedVector[] local = vectors;
+        if (index < 0 || index >= local.length) throw new ArrayIndexOutOfBoundsException();
+        return local[index];
     }
 
     public int length() {
-        // TODO: return number of stored vectors
-        return 0;
+        return vectors.length;
     }
 
     public VectorOrientation getOrientation() {
-        // TODO: return orientation
-        return null;
+        SharedVector[] local = vectors;
+        if (local.length>0){
+            return local[0].getOrientation();
+        }
+        return VectorOrientation.ROW_MAJOR;
     }
 
     private void acquireAllVectorReadLocks(SharedVector[] vecs) {
-        // TODO: acquire read lock for each vector
+        for (int i = 0; i < vecs.length; i++){
+            vecs[i].readLock();
+        }
     }
 
     private void releaseAllVectorReadLocks(SharedVector[] vecs) {
-        // TODO: release read locks
+        for (int i = vecs.length - 1; i >= 0; i--) {
+            vecs[i].readUnlock();
+        }
     }
 
     private void acquireAllVectorWriteLocks(SharedVector[] vecs) {
-        // TODO: acquire write lock for each vector
+        for (int i = 0; i < vecs.length; i++){
+            vecs[i].writeLock();
+        }
     }
 
     private void releaseAllVectorWriteLocks(SharedVector[] vecs) {
-        // TODO: release write locks
+        for (int i = vecs.length - 1; i >= 0; i--) {
+            vecs[i].writeUnlock();
+        }
+    }
+
+    private void mismatchErr(){
+        throw new IllegalArgumentException("Illegal operation: dimensions mismatch");
+    }
+
+    private void load(boolean r_c, double[][] matrix){
+        if (matrix == null) throw new IllegalArgumentException("Matrix is null");
+        int rows = matrix.length;
+        if (rows==0){
+            vectors = new SharedVector[0];
+            return;
+        }
+        if (matrix[0] == null) throw new IllegalArgumentException("Matrix[0] is null");
+        int cols = matrix[0].length;
+        for (int r = 1; r < rows; r++) {
+            if (matrix[r] == null) throw new IllegalArgumentException("Matrix[" + r + "] is null");
+            if (matrix[r].length != cols) mismatchErr();
+        }
+
+        SharedVector[] newVecs;
+        VectorOrientation ori = r_c?
+                VectorOrientation.ROW_MAJOR:
+                    VectorOrientation.COLUMN_MAJOR;
+        if (r_c){
+            newVecs = new SharedVector[rows];
+            for (int i=0; i<rows; i++){
+                newVecs[i] = new SharedVector(matrix[i].clone(), ori);
+            }
+        }else{
+            newVecs = new SharedVector[cols];
+            for (int i=0; i<cols; i++){
+                double[] vec = new double[rows];
+                for (int j=0; j<rows; j++){
+                    vec[j] = matrix[j][i];
+                }
+                newVecs[i] = new SharedVector(vec, ori);
+            }
+        }
+        vectors = newVecs;
     }
 }
