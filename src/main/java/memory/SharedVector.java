@@ -135,11 +135,39 @@ public class SharedVector {
     }
 
     public void vecMatMul(SharedMatrix matrix) {
+        if (getOrientation() != VectorOrientation.ROW_MAJOR) {
+            throw new IllegalArgumentException("Expects a ROW_MAJOR vector.");
+        }
+        double[][] mat = matrix.readRowMajor();
+        int rows = mat.length;
+        if (rows == 0) {
+            writeLock();
+            try {
+                if (vector.length != 0) mismatchErr();
+                vector = new double[0];
+                orientation = VectorOrientation.ROW_MAJOR;
+            } finally {
+                writeUnlock();
+            }
+            return;
+        }
+        int cols = mat[0].length;
         writeLock();
-        try{
-            int len = length();
+        try {
+            if (vector.length != rows) mismatchErr();
+            double[] result = new double[cols];
+            for (int j = 0; j < cols; j++) {
+                double sum = 0.0;
+                for (int i = 0; i < rows; i++) {
+                    if (mat[i].length != cols) mismatchErr();
+                    sum += vector[i] * mat[i][j];
+                }
+                result[j] = sum;
+            }
 
-        }finally {
+            this.vector = result;
+            this.orientation = VectorOrientation.ROW_MAJOR;
+        } finally {
             writeUnlock();
         }
     }
