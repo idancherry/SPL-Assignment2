@@ -12,24 +12,83 @@ public class TiredExecutor {
     private final AtomicInteger inFlight = new AtomicInteger(0);
 
     public TiredExecutor(int numThreads) {
-        // TODO
-        workers = null; // placeholder
+        
+        workers = new TiredThread[numThreads];
+
+        for(int i=0; i<numThreads; i++){
+            workers[i] = new TiredThread(i, Math.random() + 0.5);
+            idleMinHeap.add(workers[i]);
+            workers[i].start();
+        }
     }
 
     public void submit(Runnable task) {
-        // TODO
+    inFlight.incrementAndGet();
+
+    try {
+        TiredThread worker = idleMinHeap.take();
+
+        worker.newTask(() -> {
+            try {
+                task.run(); 
+            } finally {
+            
+                inFlight.decrementAndGet();
+                idleMinHeap.add(worker); 
+                notifyAll();
+            }
+        });
+
+    } catch (InterruptedException e) {
+        inFlight.decrementAndGet();
+        e.printStackTrace();
     }
+}
 
     public void submitAll(Iterable<Runnable> tasks) {
-        // TODO: submit tasks one by one and wait until all finish
+        //submit tasks one by one and wait until all finish
+
+       for (Runnable task : tasks){
+        
+            submit(task);
+            inFlight.incrementAndGet();
+        }
+        synchronized(this){
+            while (inFlight.get() > 0) {
+                try {
+                    this.wait();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
     }
 
     public void shutdown() throws InterruptedException {
-        // TODO
+        for (TiredThread worker : workers){
+            if (worker != null) {
+                worker.shutdown();
+            }
+        }
+
+        for (TiredThread worker : workers) {
+            if (worker != null) {
+                worker.join(); 
+            }
+        }
     }
+    
 
     public synchronized String getWorkerReport() {
-        // TODO: return readable statistics for each worker
-        return null;
+        String output ="";
+
+        for (TiredThread worker : workers){
+             output += "name of the worker: " + worker.getName()  + ", woker's id: "+ worker.getWorkerId() + 
+             ", time he worked: " + worker.getTimeUsed() + ", time he rested: " 
+             + worker.getTimeIdle() + ",his fatigue level" + worker.getFatigue() +"/n" ;
+
+        }
+
+        return output;
     }
 }
