@@ -109,6 +109,7 @@ public class SharedVector {
     }
 
     public double dot(SharedVector other) {
+        if (orientation!=VectorOrientation.ROW_MAJOR) mismatchErr();
         double[] otherArr;
         VectorOrientation orr;
         other.readLock();
