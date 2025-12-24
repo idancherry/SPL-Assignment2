@@ -117,4 +117,28 @@ public class LinearAlgebraEngine {
         // TODO: return summary of worker activity
         return executor.getWorkerReport();
     }
+
+    public boolean checkEqlDimentionsForAdd(){
+
+        Boolean ans = false;
+
+        VectorOrientation orrL = leftMatrix.getOrientation();
+        VectorOrientation orrR = rightMatrix.getOrientation();
+
+        if (orrL.equals(orrR)){
+            if (leftMatrix.length() ==rightMatrix.length() &&
+                leftMatrix.get(0).length()== rightMatrix.get(0).length())
+                ans = true;
+        }
+        else{
+            if (leftMatrix.length() == rightMatrix.get(0).length() && leftMatrix.get(0).length() == rightMatrix.length()) {
+                ans = true;
+            }
+            else
+                ans = false;
+        }
+        return ans;
+
+    }
 }
+        
