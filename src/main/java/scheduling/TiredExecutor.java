@@ -23,33 +23,32 @@ public class TiredExecutor {
     }
 
     public void submit(Runnable task) {
-    inFlight.incrementAndGet();
+        inFlight.incrementAndGet();
 
-    try {
-        TiredThread worker = idleMinHeap.take();
+        try {
+            TiredThread worker = idleMinHeap.take();
 
-        worker.newTask(() -> {
-            try {
-                task.run(); 
-            } finally {
-            
-                inFlight.decrementAndGet();
-                idleMinHeap.add(worker); 
-                notifyAll();
-            }
-        });
+            worker.newTask(() -> {
+                try {
+                    task.run();
+                } finally {
 
-    } catch (InterruptedException e) {
-        inFlight.decrementAndGet();
-        e.printStackTrace();
+                    inFlight.decrementAndGet();
+                    idleMinHeap.add(worker);
+                    notifyAll();
+                }
+            });
+
+        } catch (InterruptedException e) {
+            inFlight.decrementAndGet();
+            e.printStackTrace();
+        }
     }
-}
 
     public void submitAll(Iterable<Runnable> tasks) {
         //submit tasks one by one and wait until all finish
 
        for (Runnable task : tasks){
-        
             submit(task);
             inFlight.incrementAndGet();
         }
