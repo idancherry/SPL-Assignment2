@@ -23,41 +23,55 @@ public class TiredExecutor {
     }
 
     public void submit(Runnable task) {
+        if (task==null)
+            throw new NullPointerException("Task is null.");
+
         inFlight.incrementAndGet();
+        final TiredThread worker;
 
         try {
-            TiredThread worker = idleMinHeap.take();
-
+            worker = idleMinHeap.take();
+        }catch (InterruptedException e) {
+            inFlight.decrementAndGet();
+            Thread.currentThread().interrupt();
+            return;
+        }
+        try{
             worker.newTask(() -> {
                 try {
                     task.run();
                 } finally {
-
                     inFlight.decrementAndGet();
                     idleMinHeap.add(worker);
-                    notifyAll();
+                    synchronized (TiredExecutor.this) {
+                        TiredExecutor.this.notifyAll();
+                    }
                 }
             });
-
-        } catch (InterruptedException e) {
+        }catch (RuntimeException ex){
+            // worker returns & fixes counter even if task fails
+            idleMinHeap.add(worker);
             inFlight.decrementAndGet();
-            e.printStackTrace();
+            synchronized (TiredExecutor.this) {
+                TiredExecutor.this.notifyAll();
+            }
+            throw ex;
         }
+
     }
 
     public void submitAll(Iterable<Runnable> tasks) {
         //submit tasks one by one and wait until all finish
-
        for (Runnable task : tasks){
             submit(task);
-            inFlight.incrementAndGet();
         }
         synchronized(this){
             while (inFlight.get() > 0) {
                 try {
                     this.wait();
                 } catch (InterruptedException e) {
-                    e.printStackTrace();
+                    // If thread is interrupted while waiting we should enforce the interrupt
+                    Thread.currentThread().interrupt();
                 }
             }
         }
@@ -79,15 +93,16 @@ public class TiredExecutor {
     
 
     public synchronized String getWorkerReport() {
-        String output ="";
-
-        for (TiredThread worker : workers){
-             output += "name of the worker: " + worker.getName()  + ", woker's id: "+ worker.getWorkerId() + 
-             ", time he worked: " + worker.getTimeUsed() + ", time he rested: " 
-             + worker.getTimeIdle() + ",his fatigue level" + worker.getFatigue() +"/n" ;
-
+        StringBuilder sb = new StringBuilder();
+        for (TiredThread worker : workers) {
+            if (worker == null) continue;
+            sb.append("Worker name=").append(worker.getName())
+                    .append(", id=").append(worker.getWorkerId())
+                    .append(", timeUsed(ns)=").append(worker.getTimeUsed())
+                    .append(", timeIdle(ns)=").append(worker.getTimeIdle())
+                    .append(", fatigue=").append(worker.getFatigue())
+                    .append("\n");
         }
-
-        return output;
+        return sb.toString();
     }
 }

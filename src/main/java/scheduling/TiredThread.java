@@ -56,11 +56,16 @@ public class TiredThread extends Thread implements Comparable<TiredThread> {
      * it throws IllegalStateException.
      */
     public void newTask(Runnable task) {
-        if (!alive.get() || isBusy()) {
+        if (task == null) {
+            throw new NullPointerException("Given task is null.");
+        }
+        if (!alive.get() || busy.get()) {
             throw new IllegalStateException("Worker is shut down or busy.");
         }
-        else{
-            handoff.add(task);
+        // offer (instead of put) bc it doesn't throw exception
+        boolean accepted = handoff.offer(task);
+        if (!accepted) {
+            throw new IllegalStateException("Worker is not ready to accept a task.");
         }
     }
 
@@ -69,44 +74,40 @@ public class TiredThread extends Thread implements Comparable<TiredThread> {
      * Inserts a poison pill so the worker wakes up and exits.
      */
     public void shutdown() {
-        handoff.add(POISON_PILL);
-        alive.set(false);        
+        alive.set(false);
+        try {
+            // put blocks until space is available
+            handoff.put(POISON_PILL);
+        } catch (InterruptedException e) { //this might be interrupted by another thread
+            Thread.currentThread().interrupt(); //clears interrupt status
+        }
     }
 
     @Override
     public void run() {
-
         while (true){
-
             idleStartTime.set(System.nanoTime()); 
-            Runnable task = null;
+            Runnable task;
             try {
                 task = handoff.take();
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                continue;
             }
             long now = System.nanoTime();
             long idleDuration =  now - idleStartTime.get();
             timeIdle.addAndGet(idleDuration);
             
-            if (task == POISON_PILL)
-                break;
-            else{
-                if (task!=null){
+            if (task == POISON_PILL) break;
 
-                    busy.set(true);
+            busy.set(true);
+            long startRunning = System.nanoTime();
 
-                    long startRunning = System.nanoTime();
-                    task.run();
-
-                    long endRunning = System.nanoTime();
-                    busy.set(false);
-
-                    timeUsed.addAndGet(endRunning - startRunning);
-
-
-                }
-                   
+            try{
+                task.run();
+            }finally {
+                long endRunning = System.nanoTime();
+                timeUsed.addAndGet(endRunning - startRunning);
+                busy.set(false);
             }
         }
     }
