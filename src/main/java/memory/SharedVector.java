@@ -17,7 +17,7 @@ public class SharedVector {
         readLock();
         try {
             if (index<0 || index >= vector.length) {
-                throw new ArrayIndexOutOfBoundsException("Index out off bounds.");
+                throw new ArrayIndexOutOfBoundsException("Index out of bounds.");
             }
             return vector[index];
         } finally {
@@ -109,13 +109,11 @@ public class SharedVector {
     }
 
     public double dot(SharedVector other) {
-        if (orientation!=VectorOrientation.ROW_MAJOR) mismatchErr();
         double[] otherArr;
-        VectorOrientation orr;
+        VectorOrientation otherOri;
         other.readLock();
-        double co=0;
         try{
-            orr = other.orientation;
+            otherOri = other.orientation;
             otherArr = other.vector.clone();
         }finally {
             other.readUnlock();
@@ -123,16 +121,18 @@ public class SharedVector {
         readLock();
         try{
             int len = vector.length;
-            if (len!=otherArr.length || orr!=orientation){
-                mismatchErr();
-            }
+            if (orientation!=VectorOrientation.ROW_MAJOR ||
+                    len!=otherArr.length ||
+                    otherOri==orientation) mismatchErr();
+
+            double sum=0;
             for (int i=0; i<len; i++){
-                co+=vector[i]*otherArr[i];
+                sum+=vector[i]*otherArr[i];
             }
+            return sum;
         }finally {
             readUnlock();
         }
-        return co;
     }
 
     public void vecMatMul(SharedMatrix matrix) {
@@ -160,12 +160,10 @@ public class SharedVector {
             for (int j = 0; j < cols; j++) {
                 double sum = 0.0;
                 for (int i = 0; i < rows; i++) {
-                    if (mat[i].length != cols) mismatchErr();
                     sum += vector[i] * mat[i][j];
                 }
                 result[j] = sum;
             }
-
             this.vector = result;
             this.orientation = VectorOrientation.ROW_MAJOR;
         } finally {

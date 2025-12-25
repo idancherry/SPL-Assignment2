@@ -9,7 +9,7 @@ public class SharedMatrix {
     }
 
     public SharedMatrix(double[][] matrix) {
-        load(true, matrix);
+        loadRowMajor(matrix);
     }
 
     public void loadRowMajor(double[][] matrix) {
@@ -27,14 +27,16 @@ public class SharedMatrix {
             double[][] matrix;
             int outer = local.length;
             if (outer==0) return new double[0][];
-            int inner = local[0].length();
             int rows;
             int cols;
             VectorOrientation ori = local[0].getOrientation();
+            for (int k = 1; k < outer; k++) {
+                if (local[k].getOrientation() != ori) mismatchErr();
+            }
+            int inner = local[0].length();
             if (ori ==VectorOrientation.ROW_MAJOR){
                 rows = outer;
                 cols= inner;
-
                 matrix = new double[rows][cols];
                 for (int i=0; i<rows; i++){
                     if (local[i].length()!=cols) mismatchErr();
@@ -72,10 +74,18 @@ public class SharedMatrix {
 
     public VectorOrientation getOrientation() {
         SharedVector[] local = vectors;
-        if (local.length>0){
-            return local[0].getOrientation();
+        acquireAllVectorReadLocks(local);
+        try {
+            int outer = local.length;
+            if (outer == 0) return VectorOrientation.ROW_MAJOR;
+            VectorOrientation ori = local[0].getOrientation();
+            for (int i = 1; i < outer; i++) {
+                if (local[i].getOrientation() != ori) mismatchErr();
+            }
+            return ori;
+        } finally {
+            releaseAllVectorReadLocks(local);
         }
-        return VectorOrientation.ROW_MAJOR;
     }
 
     private void acquireAllVectorReadLocks(SharedVector[] vecs) {
@@ -107,13 +117,13 @@ public class SharedMatrix {
     }
 
     private void load(boolean r_c, double[][] matrix){
-        if (matrix == null) throw new IllegalArgumentException("Matrix is null");
+        if (matrix == null) throw new IllegalArgumentException("Matrix is null.");
         int rows = matrix.length;
         if (rows==0){
             vectors = new SharedVector[0];
             return;
         }
-        if (matrix[0] == null) throw new IllegalArgumentException("Matrix[0] is null");
+        if (matrix[0] == null) throw new IllegalArgumentException("Matrix[0] is null.");
         int cols = matrix[0].length;
         for (int r = 1; r < rows; r++) {
             if (matrix[r] == null) throw new IllegalArgumentException("Matrix[" + r + "] is null");
@@ -140,5 +150,26 @@ public class SharedMatrix {
             }
         }
         vectors = newVecs;
+    }
+
+    public int[] getDim(){
+        SharedVector[] local = vectors;
+        acquireAllVectorReadLocks(local);
+        try{
+            int outer = local.length;
+            if (outer==0) return new int[]{0,0};
+            int inner = local[0].length();
+            VectorOrientation ori = local[0].getOrientation();
+            for (int i = 1; i < outer; i++) {
+                if (local[i].length() != inner || local[i].getOrientation() != ori) {
+                    mismatchErr();
+                }
+            }
+            return (ori == VectorOrientation.ROW_MAJOR)
+                    ? new int[]{outer, inner}
+                    : new int[]{inner, outer};
+        }finally {
+            releaseAllVectorReadLocks(local);
+        }
     }
 }
