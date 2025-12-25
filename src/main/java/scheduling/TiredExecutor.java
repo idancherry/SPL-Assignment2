@@ -12,24 +12,97 @@ public class TiredExecutor {
     private final AtomicInteger inFlight = new AtomicInteger(0);
 
     public TiredExecutor(int numThreads) {
-        // TODO
-        workers = null; // placeholder
+        
+        workers = new TiredThread[numThreads];
+
+        for(int i=0; i<numThreads; i++){
+            workers[i] = new TiredThread(i, Math.random() + 0.5);
+            idleMinHeap.add(workers[i]);
+            workers[i].start();
+        }
     }
 
     public void submit(Runnable task) {
-        // TODO
+        if (task==null)
+            throw new NullPointerException("Task is null.");
+
+        inFlight.incrementAndGet();
+        final TiredThread worker;
+
+        try {
+            worker = idleMinHeap.take();
+        }catch (InterruptedException e) {
+            inFlight.decrementAndGet();
+            Thread.currentThread().interrupt();
+            return;
+        }
+        try{
+            worker.newTask(() -> {
+                try {
+                    task.run();
+                } finally {
+                    inFlight.decrementAndGet();
+                    idleMinHeap.add(worker);
+                    synchronized (TiredExecutor.this) {
+                        TiredExecutor.this.notifyAll();
+                    }
+                }
+            });
+        }catch (RuntimeException ex){
+            // worker returns & fixes counter even if task fails
+            idleMinHeap.add(worker);
+            inFlight.decrementAndGet();
+            synchronized (TiredExecutor.this) {
+                TiredExecutor.this.notifyAll();
+            }
+            throw ex;
+        }
+
     }
 
     public void submitAll(Iterable<Runnable> tasks) {
-        // TODO: submit tasks one by one and wait until all finish
+        //submit tasks one by one and wait until all finish
+       for (Runnable task : tasks){
+            submit(task);
+        }
+        synchronized(this){
+            while (inFlight.get() > 0) {
+                try {
+                    this.wait();
+                } catch (InterruptedException e) {
+                    // If thread is interrupted while waiting we should enforce the interrupt
+                    Thread.currentThread().interrupt();
+                }
+            }
+        }
     }
 
     public void shutdown() throws InterruptedException {
-        // TODO
+        for (TiredThread worker : workers){
+            if (worker != null) {
+                worker.shutdown();
+            }
+        }
+
+        for (TiredThread worker : workers) {
+            if (worker != null) {
+                worker.join(); 
+            }
+        }
     }
+    
 
     public synchronized String getWorkerReport() {
-        // TODO: return readable statistics for each worker
-        return null;
+        StringBuilder sb = new StringBuilder();
+        for (TiredThread worker : workers) {
+            if (worker == null) continue;
+            sb.append("Worker name=").append(worker.getName())
+                    .append(", id=").append(worker.getWorkerId())
+                    .append(", timeUsed(ns)=").append(worker.getTimeUsed())
+                    .append(", timeIdle(ns)=").append(worker.getTimeIdle())
+                    .append(", fatigue=").append(worker.getFatigue())
+                    .append("\n");
+        }
+        return sb.toString();
     }
 }

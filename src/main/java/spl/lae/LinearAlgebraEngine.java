@@ -4,6 +4,7 @@ import parser.*;
 import memory.*;
 import scheduling.*;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class LinearAlgebraEngine {
@@ -13,7 +14,8 @@ public class LinearAlgebraEngine {
     private TiredExecutor executor;
 
     public LinearAlgebraEngine(int numThreads) {
-        // TODO: create executor with given thread count
+        executor = new TiredExecutor(numThreads);
+
     }
 
     public ComputationNode run(ComputationNode computationRoot) {
@@ -28,26 +30,115 @@ public class LinearAlgebraEngine {
 
     public List<Runnable> createAddTasks() {
         // TODO: return tasks that perform row-wise addition
-        return null;
+
+        List<Runnable> tasks = new ArrayList<>();
+
+        if (leftMatrix.length() != rightMatrix.length())
+            throw new IllegalArgumentException("Illegal operation: dimensions mismatch");
+
+        for(int i=0; i< leftMatrix.length(); i++){
+            
+            final int rowIndex = i;
+
+            if(leftMatrix.get(rowIndex).length()!=rightMatrix.get(rowIndex).length())
+                throw new IllegalArgumentException("Illegal operation: dimensions mismatch");
+
+            Runnable task = new Runnable() {
+            public void run() {leftMatrix.get(rowIndex).add(rightMatrix.get(rowIndex));}
+            };
+
+            tasks.add(task);
+        }
+        return tasks;
     }
 
     public List<Runnable> createMultiplyTasks() {
         // TODO: return tasks that perform row × matrix multiplication
-        return null;
+        List<Runnable> tasks = new ArrayList<>();
+
+        double [][] newMatrix = new double[leftMatrix.length()][rightMatrix.get(1).length()];
+        
+
+        for(int i=0; i< leftMatrix.length(); i++){
+
+            final int rowIndex = i;
+
+            Runnable task = new Runnable() {
+
+                
+
+            public void run() {leftMatrix.get(rowIndex).dot(rightMatrix.get());}
+            };
+
+            tasks.add(task);
+        }
+        return tasks;
     }
 
     public List<Runnable> createNegateTasks() {
         // TODO: return tasks that negate rows
-        return null;
+
+        List<Runnable> tasks = new ArrayList<>();
+
+
+        for(int i=0; i< leftMatrix.length(); i++){
+
+            final int rowIndex = i;
+
+            Runnable task = new Runnable() {
+            public void run() {leftMatrix.get(rowIndex).negate();}
+            };
+
+            tasks.add(task);
+        }
+        return tasks;
+        
     }
 
     public List<Runnable> createTransposeTasks() {
         // TODO: return tasks that transpose rows
-        return null;
+        List<Runnable> tasks = new ArrayList<>();
+
+
+        for(int i=0; i< leftMatrix.length(); i++){
+
+            final int rowIndex = i;
+
+            Runnable task = new Runnable() {
+            public void run() {leftMatrix.get(rowIndex).transpose();}
+            };
+
+            tasks.add(task);
+        }
+        return tasks;
     }
 
     public String getWorkerReport() {
         // TODO: return summary of worker activity
-        return null;
+        return executor.getWorkerReport();
+    }
+
+    public boolean checkEqlDimentionsForAdd(){
+
+        Boolean ans = false;
+
+        VectorOrientation orrL = leftMatrix.getOrientation();
+        VectorOrientation orrR = rightMatrix.getOrientation();
+
+        if (orrL.equals(orrR)){
+            if (leftMatrix.length() ==rightMatrix.length() &&
+                leftMatrix.get(0).length()== rightMatrix.get(0).length())
+                ans = true;
+        }
+        else{
+            if (leftMatrix.length() == rightMatrix.get(0).length() && leftMatrix.get(0).length() == rightMatrix.length()) {
+                ans = true;
+            }
+            else
+                ans = false;
+        }
+        return ans;
+
     }
 }
+        
