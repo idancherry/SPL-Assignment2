@@ -53,6 +53,7 @@ public class TiredExecutor {
             idleMinHeap.add(worker);
             inFlight.decrementAndGet();
             synchronized (TiredExecutor.this) {
+                System.out.println("Worker calling notify! Tasks left: " + inFlight.get());
                 TiredExecutor.this.notifyAll();
             }
             throw ex;
@@ -65,7 +66,7 @@ public class TiredExecutor {
        for (Runnable task : tasks){
             submit(task);
         }
-        synchronized(this){
+        synchronized(TiredExecutor.this){
             while (inFlight.get() > 0) {
                 try {
                     this.wait();
@@ -105,4 +106,5 @@ public class TiredExecutor {
         }
         return sb.toString();
     }
+    
 }

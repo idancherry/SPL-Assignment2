@@ -22,6 +22,9 @@ public class LinearAlgebraEngine {
         // TODO: resolve computation tree step by step until final matrix is produced
         computationRoot.associativeNesting();
         while (computationRoot.getNodeType() != ComputationNodeType.MATRIX){
+
+            System.out.println("Engine started running..."); 
+            
             ComputationNode resolvableNode = computationRoot.findResolvable();
             if (resolvableNode==null){
                 throw new IllegalStateException("No resolvable node found, " +
@@ -144,5 +147,10 @@ public class LinearAlgebraEngine {
         int[] dims2 = rightMatrix.getDim();
         if (dims1[0]!=dims2[0] || dims1[1]!=dims2[1]) mismatchErr();
     }
+
+    public void shutdown() throws InterruptedException {
+    // המנוע מעביר את הפקודה לאקזקיוטור שלו
+    executor.shutdown();
+}
 }
         

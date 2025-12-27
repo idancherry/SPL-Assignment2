@@ -60,7 +60,7 @@ public class TiredThread extends Thread implements Comparable<TiredThread> {
             throw new NullPointerException("Given task is null.");
         }
         if (!alive.get() || busy.get()) {
-            throw new IllegalStateException("Worker is shut down or busy.");
+            throw new IllegalStateException("Worker is shut down or busy. aive :"+ alive.get() + "busy: " + busy.get() );
         }
         // offer (instead of put) bc it doesn't throw exception
         boolean accepted = handoff.offer(task);
@@ -98,17 +98,20 @@ public class TiredThread extends Thread implements Comparable<TiredThread> {
             timeIdle.addAndGet(idleDuration);
             
             if (task == POISON_PILL) break;
-
-            busy.set(true);
-            long startRunning = System.nanoTime();
-
-            try{
-                task.run();
-            }finally {
-                long endRunning = System.nanoTime();
-                timeUsed.addAndGet(endRunning - startRunning);
-                busy.set(false);
-            }
+            
+            if(task!=null){
+                busy.set(true);
+                long startRunning = System.nanoTime();
+    
+                try{
+                    task.run();
+                }finally {
+                    long endRunning = System.nanoTime();
+                    timeUsed.addAndGet(endRunning - startRunning);
+                    busy.set(false);
+                    task=null;
+                }
+            } else System.err.println("task is null");
         }
     }
 

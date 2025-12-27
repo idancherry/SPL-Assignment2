@@ -10,7 +10,6 @@ public class Main {
     public static void main(String[] args) throws IOException {
       // TODO: main
 
-      // 1. בדיקת תקינות הקלט הראשוני
         if (args.length != 3) {
             System.err.println("Usage: java Main <input_json> <output_json> <num_threads>");
             return;
@@ -31,6 +30,8 @@ public class Main {
           double[][] resultMatrix = resultNode.getMatrix();
           OutputWriter.write(resultMatrix, outputPath);
 
+          leaEngine.shutdown();
+
 
         } catch (Exception e) {
             // write error to output file and print to stderr
@@ -44,7 +45,11 @@ public class Main {
             }
             e.printStackTrace();
           }
+        
+          
     }
+
+    
     
 }
 
