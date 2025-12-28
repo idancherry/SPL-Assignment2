@@ -144,5 +144,9 @@ public class LinearAlgebraEngine {
         int[] dims2 = rightMatrix.getDim();
         if (dims1[0]!=dims2[0] || dims1[1]!=dims2[1]) mismatchErr();
     }
+
+    public void shutdown() throws InterruptedException {
+        executor.shutdown();
+    }
 }
         
