@@ -103,7 +103,9 @@ public class TiredThread extends Thread implements Comparable<TiredThread> {
             long startRunning = System.nanoTime();
 
             try{
-                task.run();
+                try {
+                    task.run();
+                } catch (Throwable ignored) {}
             }finally {
                 long endRunning = System.nanoTime();
                 timeUsed.addAndGet(endRunning - startRunning);

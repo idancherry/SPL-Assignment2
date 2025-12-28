@@ -27,36 +27,46 @@ public class TiredExecutor {
             throw new NullPointerException("Task is null.");
 
         inFlight.incrementAndGet();
-        final TiredThread worker;
 
-        try {
-            worker = idleMinHeap.take();
-        }catch (InterruptedException e) {
-            inFlight.decrementAndGet();
-            Thread.currentThread().interrupt();
-            return;
-        }
-        try{
-            worker.newTask(() -> {
-                try {
-                    task.run();
-                } finally {
-                    inFlight.decrementAndGet();
-                    idleMinHeap.add(worker);
-                    synchronized (TiredExecutor.this) {
-                        TiredExecutor.this.notifyAll();
-                    }
-                }
-            });
-        }catch (RuntimeException ex){
-            // worker returns & fixes counter even if task fails
-            idleMinHeap.add(worker);
-            inFlight.decrementAndGet();
-            synchronized (TiredExecutor.this) {
-                TiredExecutor.this.notifyAll();
+        while (true) {
+            final TiredThread worker;
+
+            try {
+                worker = idleMinHeap.take();
+            }catch (InterruptedException e) {
+                inFlight.decrementAndGet();
+                Thread.currentThread().interrupt();
+                return;
             }
-            throw ex;
+            while (worker.isBusy()) {
+                Thread.onSpinWait();
+            }
+            try{
+                worker.newTask(() -> {
+                    try {
+                        task.run();
+                    } finally {
+                        inFlight.decrementAndGet();
+                        idleMinHeap.add(worker);
+                        synchronized (TiredExecutor.this) {
+                            TiredExecutor.this.notifyAll();
+                        }
+                    }
+                });
+                return;
+            } catch (IllegalStateException ex) {
+                idleMinHeap.add(worker);
+            }catch (RuntimeException ex){
+                // worker returns & fixes counter even if task fails
+                idleMinHeap.add(worker);
+                inFlight.decrementAndGet();
+                synchronized (TiredExecutor.this) {
+                    TiredExecutor.this.notifyAll();
+                }
+                throw ex;
+            }
         }
+
 
     }
 
