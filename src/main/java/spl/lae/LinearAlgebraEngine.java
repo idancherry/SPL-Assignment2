@@ -20,76 +20,100 @@ public class LinearAlgebraEngine {
 
     public ComputationNode run(ComputationNode computationRoot) {
         // TODO: resolve computation tree step by step until final matrix is produced
-        return null;
+        computationRoot.associativeNesting();
+        while (computationRoot.getNodeType() != ComputationNodeType.MATRIX){
+            ComputationNode resolvableNode = computationRoot.findResolvable();
+            if (resolvableNode==null){
+                throw new IllegalStateException("No resolvable node found, " +
+                        "but root node is not a matrix.");
+            }
+            resolvableNode.associativeNesting();
+            loadAndCompute(resolvableNode);
+        }
+        return computationRoot;
     }
 
     public void loadAndCompute(ComputationNode node) {
         // TODO: load operand matrices
         // TODO: create compute tasks & submit tasks to executor
+        List<ComputationNode> children = node.getChildren();
+        if (children == null)
+            throw new IllegalArgumentException("Operator node has no children.");
+
+        ComputationNodeType type =node.getNodeType();
+        if (children.size() == 1){
+            leftMatrix.loadRowMajor(children.get(0).getMatrix());
+            switch (type){
+                case NEGATE:
+                    executor.submitAll(createNegateTasks());
+                    break;
+
+                case TRANSPOSE:
+                    executor.submitAll(createTransposeTasks());
+                    break;
+
+                default:
+                    throw new IllegalArgumentException("Invalid unary operation.");
+            }
+            node.resolve(leftMatrix.readRowMajor());
+            return;
+        }else if (children.size()==2){
+            leftMatrix.loadRowMajor(children.get(0).getMatrix());
+            rightMatrix.loadRowMajor(children.get(1).getMatrix());
+            switch (type){
+                case ADD:
+                    executor.submitAll(createAddTasks());
+                    break;
+
+                case MULTIPLY:
+                    executor.submitAll(createMultiplyTasks());
+                    break;
+
+                default:
+                    throw new IllegalArgumentException("Invalid binary operation: " + type);
+            }
+            node.resolve(leftMatrix.readRowMajor());
+            return;
+        }
+        throw new IllegalArgumentException("Invalid arity: " + children.size());
     }
 
     public List<Runnable> createAddTasks() {
         // TODO: return tasks that perform row-wise addition
+        isMatchDims();
+        int rows = leftMatrix.length();
+        List<Runnable> tasks = new ArrayList<>(rows);
 
-        List<Runnable> tasks = new ArrayList<>();
-
-        if (leftMatrix.length() != rightMatrix.length())
-            throw new IllegalArgumentException("Illegal operation: dimensions mismatch");
-
-        for(int i=0; i< leftMatrix.length(); i++){
-            
+        for(int i=0; i< rows; i++){
             final int rowIndex = i;
-
-            if(leftMatrix.get(rowIndex).length()!=rightMatrix.get(rowIndex).length())
-                throw new IllegalArgumentException("Illegal operation: dimensions mismatch");
-
-            Runnable task = new Runnable() {
-            public void run() {leftMatrix.get(rowIndex).add(rightMatrix.get(rowIndex));}
-            };
-
-            tasks.add(task);
+            tasks.add(() -> leftMatrix.get(rowIndex).add(rightMatrix.get(rowIndex)));
         }
         return tasks;
     }
 
     public List<Runnable> createMultiplyTasks() {
         // TODO: return tasks that perform row × matrix multiplication
-        List<Runnable> tasks = new ArrayList<>();
+        int[] a = leftMatrix.getDim();
+        int[] b = rightMatrix.getDim();
 
-        double [][] newMatrix = new double[leftMatrix.length()][rightMatrix.get(1).length()];
-        
+        if (a[1] != b[0]) mismatchErr();
 
-        for(int i=0; i< leftMatrix.length(); i++){
-
+        int rows = leftMatrix.length();
+        List<Runnable> tasks = new ArrayList<>(rows);
+        for (int i = 0; i < rows; i++) {
             final int rowIndex = i;
-
-            Runnable task = new Runnable() {
-
-                
-
-            public void run() {leftMatrix.get(rowIndex).dot(rightMatrix.get());}
-            };
-
-            tasks.add(task);
+            tasks.add(() -> leftMatrix.get(rowIndex).vecMatMul(rightMatrix));
         }
         return tasks;
     }
 
     public List<Runnable> createNegateTasks() {
         // TODO: return tasks that negate rows
-
-        List<Runnable> tasks = new ArrayList<>();
-
-
-        for(int i=0; i< leftMatrix.length(); i++){
-
+        int rows = leftMatrix.length();
+        List<Runnable> tasks = new ArrayList<>(rows);
+        for (int i = 0; i < rows; i++) {
             final int rowIndex = i;
-
-            Runnable task = new Runnable() {
-            public void run() {leftMatrix.get(rowIndex).negate();}
-            };
-
-            tasks.add(task);
+            tasks.add(() -> leftMatrix.get(rowIndex).negate());
         }
         return tasks;
         
@@ -97,18 +121,11 @@ public class LinearAlgebraEngine {
 
     public List<Runnable> createTransposeTasks() {
         // TODO: return tasks that transpose rows
-        List<Runnable> tasks = new ArrayList<>();
-
-
-        for(int i=0; i< leftMatrix.length(); i++){
-
-            final int rowIndex = i;
-
-            Runnable task = new Runnable() {
-            public void run() {leftMatrix.get(rowIndex).transpose();}
-            };
-
-            tasks.add(task);
+        int outer = leftMatrix.length();
+        List<Runnable> tasks = new ArrayList<>(outer);
+        for (int i = 0; i < outer; i++) {
+            final int idx = i;
+            tasks.add(() -> leftMatrix.get(idx).transpose());
         }
         return tasks;
     }
@@ -118,27 +135,14 @@ public class LinearAlgebraEngine {
         return executor.getWorkerReport();
     }
 
-    public boolean checkEqlDimentionsForAdd(){
+    private void mismatchErr(){
+        throw new IllegalArgumentException("Illegal operation: dimensions mismatch");
+    }
 
-        Boolean ans = false;
-
-        VectorOrientation orrL = leftMatrix.getOrientation();
-        VectorOrientation orrR = rightMatrix.getOrientation();
-
-        if (orrL.equals(orrR)){
-            if (leftMatrix.length() ==rightMatrix.length() &&
-                leftMatrix.get(0).length()== rightMatrix.get(0).length())
-                ans = true;
-        }
-        else{
-            if (leftMatrix.length() == rightMatrix.get(0).length() && leftMatrix.get(0).length() == rightMatrix.length()) {
-                ans = true;
-            }
-            else
-                ans = false;
-        }
-        return ans;
-
+    private void isMatchDims(){
+        int[] dims1 = leftMatrix.getDim();
+        int[] dims2 = rightMatrix.getDim();
+        if (dims1[0]!=dims2[0] || dims1[1]!=dims2[1]) mismatchErr();
     }
 }
         
