@@ -30,6 +30,11 @@ public class LinearAlgebraEngine {
             resolvableNode.associativeNesting();
             loadAndCompute(resolvableNode);
         }
+        try{
+            executor.shutdown();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
         return computationRoot;
     }
 
@@ -148,11 +153,6 @@ public class LinearAlgebraEngine {
         int[] dims1 = leftMatrix.getDim();
         int[] dims2 = rightMatrix.getDim();
         if (dims1[0]!=dims2[0] || dims1[1]!=dims2[1]) mismatchErr();
-    }
-
-    // helper
-    public void shutdown() throws InterruptedException {
-        executor.shutdown();
     }
 }
         

@@ -103,27 +103,15 @@ public class TiredExecutor {
 
     public synchronized String getWorkerReport() {
         StringBuilder sb = new StringBuilder();
-        double avg=0;
-        int i=0;
         for (TiredThread worker : workers) {
             if (worker == null) continue;
-            i++;
             sb.append("Worker name=").append(worker.getName())
                     .append(", id=").append(worker.getWorkerId())
                     .append(", timeUsed(ns)=").append(worker.getTimeUsed())
                     .append(", timeIdle(ns)=").append(worker.getTimeIdle())
                     .append(", fatigue=").append(worker.getFatigue())
                     .append("\n");
-            avg+= worker.getFatigue();
         }
-        avg/= i;
-        double sum=0;
-        for (TiredThread worker : workers) {
-            if (worker == null) continue;
-            double d = worker.getFatigue() - avg;
-            sum += d * d;
-        }
-        System.out.println(sum);
         return sb.toString();
     }
 }

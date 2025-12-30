@@ -42,15 +42,6 @@ public class Main {
             } catch (IOException exception){
                 exception.printStackTrace();
             }
-        }finally {
-            if (laeEngine!=null) {
-                try {
-                    System.out.println(laeEngine.getWorkerReport());
-                    laeEngine.shutdown();
-                } catch (InterruptedException ignored) {
-                    Thread.currentThread().interrupt();
-                }
-            }
         }
     }
 }
