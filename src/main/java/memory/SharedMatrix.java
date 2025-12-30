@@ -20,6 +20,7 @@ public class SharedMatrix {
         load(false, matrix);
     }
 
+    // returns the matrix as a 2D array
     public double[][] readRowMajor() {
         SharedVector[] local = vectors;
         acquireAllVectorReadLocks(local);
@@ -62,6 +63,8 @@ public class SharedMatrix {
         }
     }
 
+
+    // getter
     public SharedVector get(int index) {
         SharedVector[] local = vectors;
         if (index < 0 || index >= local.length) throw new ArrayIndexOutOfBoundsException();
@@ -72,6 +75,7 @@ public class SharedMatrix {
         return vectors.length;
     }
 
+    // getter
     public VectorOrientation getOrientation() {
         SharedVector[] local = vectors;
         acquireAllVectorReadLocks(local);
@@ -112,10 +116,13 @@ public class SharedMatrix {
         }
     }
 
+    // helper
     private void mismatchErr(){
         throw new IllegalArgumentException("Illegal operation: dimensions mismatch");
     }
 
+    // helper
+    // If r_c is TRUE=> ROW matrix. Else, COLUMN matrix.
     private void load(boolean r_c, double[][] matrix){
         if (matrix == null) throw new IllegalArgumentException("Matrix is null.");
         int rows = matrix.length;
@@ -123,23 +130,34 @@ public class SharedMatrix {
             vectors = new SharedVector[0];
             return;
         }
-        if (matrix[0] == null) throw new IllegalArgumentException("Matrix[0] is null.");
+
+        // Edge case - matrix of empty vectors
+        if (matrix[0] == null)
+            throw new IllegalArgumentException("Matrix[0] is null.");
+
         int cols = matrix[0].length;
+
+        // Checks for NULL/mismatch across the matrix
         for (int r = 1; r < rows; r++) {
             if (matrix[r] == null) throw new IllegalArgumentException("Matrix[" + r + "] is null");
             if (matrix[r].length != cols) mismatchErr();
         }
 
         SharedVector[] newVecs;
+
+        // Sets orientation according to parameter
         VectorOrientation ori = r_c?
                 VectorOrientation.ROW_MAJOR:
                     VectorOrientation.COLUMN_MAJOR;
+
+        // Create ROW vectors
         if (r_c){
             newVecs = new SharedVector[rows];
             for (int i=0; i<rows; i++){
                 newVecs[i] = new SharedVector(matrix[i].clone(), ori);
             }
         }else{
+            // Create COLUMN vectors
             newVecs = new SharedVector[cols];
             for (int i=0; i<cols; i++){
                 double[] vec = new double[rows];
@@ -152,6 +170,8 @@ public class SharedMatrix {
         vectors = newVecs;
     }
 
+    // getter - returns [n,m], where n=number of rows, m=number of columns
+    // Additionally verifies that the matrix is valid (dimensions, same orientation)
     public int[] getDim(){
         SharedVector[] local = vectors;
         acquireAllVectorReadLocks(local);

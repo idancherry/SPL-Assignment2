@@ -108,7 +108,7 @@ public class TiredThread extends Thread implements Comparable<TiredThread> {
                 } catch (Throwable ignored) {}
             }finally {
                 long endRunning = System.nanoTime();
-                timeUsed.addAndGet(endRunning - startRunning);
+                timeUsed.addAndGet(endRunning - startRunning); // Adds time of task to sum
                 busy.set(false);
             }
         }
@@ -116,6 +116,8 @@ public class TiredThread extends Thread implements Comparable<TiredThread> {
 
     @Override
     public int compareTo(TiredThread o) {
-        return Double.compare(this.getFatigue(), o.getFatigue());
+        int c = Double.compare(this.getFatigue(), o.getFatigue());
+        if (c!=0) return c;
+        return Integer.compare(this.getWorkerId(), o.getWorkerId());
     }
 }

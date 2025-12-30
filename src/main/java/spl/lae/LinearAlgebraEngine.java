@@ -58,14 +58,16 @@ public class LinearAlgebraEngine {
             node.resolve(leftMatrix.readRowMajor());
             return;
         }else if (children.size()==2){
-            leftMatrix.loadRowMajor(children.get(0).getMatrix());
-            rightMatrix.loadRowMajor(children.get(1).getMatrix());
             switch (type){
                 case ADD:
+                    leftMatrix.loadRowMajor(children.get(0).getMatrix());
+                    rightMatrix.loadRowMajor(children.get(1).getMatrix());
                     executor.submitAll(createAddTasks());
                     break;
 
                 case MULTIPLY:
+                    leftMatrix.loadRowMajor(children.get(0).getMatrix());
+                    rightMatrix.loadColumnMajor(children.get(1).getMatrix());
                     executor.submitAll(createMultiplyTasks());
                     break;
 
@@ -107,6 +109,7 @@ public class LinearAlgebraEngine {
         return tasks;
     }
 
+
     public List<Runnable> createNegateTasks() {
         // TODO: return tasks that negate rows
         int rows = leftMatrix.length();
@@ -135,16 +138,19 @@ public class LinearAlgebraEngine {
         return executor.getWorkerReport();
     }
 
+    // helper
     private void mismatchErr(){
         throw new IllegalArgumentException("Illegal operation: dimensions mismatch");
     }
 
+    // helper
     private void isMatchDims(){
         int[] dims1 = leftMatrix.getDim();
         int[] dims2 = rightMatrix.getDim();
         if (dims1[0]!=dims2[0] || dims1[1]!=dims2[1]) mismatchErr();
     }
 
+    // helper
     public void shutdown() throws InterruptedException {
         executor.shutdown();
     }

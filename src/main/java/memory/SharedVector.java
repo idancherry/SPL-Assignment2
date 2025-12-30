@@ -13,6 +13,7 @@ public class SharedVector {
         this.orientation=orientation;
     }
 
+    // getter
     public double get(int index) {
         readLock();
         try {
@@ -25,6 +26,7 @@ public class SharedVector {
         }
     }
 
+    // returns length of vector
     public int length() {
         readLock();
         try {
@@ -34,6 +36,7 @@ public class SharedVector {
         }
     }
 
+    // returns orientation of the vector (ROW/COLUMN)
     public VectorOrientation getOrientation() {
         readLock();
         try {
@@ -59,6 +62,7 @@ public class SharedVector {
         lock.readLock().unlock();
     }
 
+    // flips vector's orientation
     public void transpose() {
         writeLock();
         try{
@@ -72,6 +76,7 @@ public class SharedVector {
         }
     }
 
+    // assigns the vector with the sum of itself and passed vector
     public void add(SharedVector other) {
         double[] otherArr;
         VectorOrientation orr;
@@ -96,6 +101,7 @@ public class SharedVector {
         }
     }
 
+    // negates all the numbers in the vector
     public void negate() {
         writeLock();
         try{
@@ -108,30 +114,27 @@ public class SharedVector {
         }
     }
 
+    // returns the product of vector (ROW) and passed vector (COLUMN)
     public double dot(SharedVector other) {
-        double[] otherArr;
-        VectorOrientation otherOri;
+        this.readLock();
         other.readLock();
-        try{
-            otherOri = other.orientation;
-            otherArr = other.vector.clone();
-        }finally {
-            other.readUnlock();
-        }
-        readLock();
-        try{
-            int len = vector.length;
-            if (orientation!=VectorOrientation.ROW_MAJOR ||
-                    len!=otherArr.length ||
-                    otherOri==orientation) mismatchErr();
+        try {
+            int len = this.vector.length;
+            if (len != other.vector.length) mismatchErr();
 
-            double sum=0;
-            for (int i=0; i<len; i++){
-                sum+=vector[i]*otherArr[i];
+            if (this.orientation != VectorOrientation.ROW_MAJOR) mismatchErr();
+            if (other.orientation != VectorOrientation.COLUMN_MAJOR) mismatchErr();
+
+            double sum = 0.0;
+            double[] a = this.vector;
+            double[] b = other.vector;
+            for (int i = 0; i < len; i++) {
+                sum += a[i] * b[i];
             }
             return sum;
-        }finally {
-            readUnlock();
+        } finally {
+            other.readUnlock();
+            this.readUnlock();
         }
     }
 
@@ -139,38 +142,47 @@ public class SharedVector {
         if (getOrientation() != VectorOrientation.ROW_MAJOR) {
             throw new IllegalArgumentException("Expects a ROW_MAJOR vector.");
         }
-        double[][] mat = matrix.readRowMajor();
-        int rows = mat.length;
-        if (rows == 0) {
-            writeLock();
-            try {
-                if (vector.length != 0) mismatchErr();
-                vector = new double[0];
-                orientation = VectorOrientation.ROW_MAJOR;
-            } finally {
-                writeUnlock();
-            }
-            return;
-        }
-        int cols = mat[0].length;
+
+        boolean colmatrix = (matrix.getOrientation() == VectorOrientation.COLUMN_MAJOR);
+        int[] dim = matrix.getDim();
+        int rows = dim[0];
+        int cols = dim[1];
+
         writeLock();
         try {
             if (vector.length != rows) mismatchErr();
-            double[] result = new double[cols];
-            for (int j = 0; j < cols; j++) {
-                double sum = 0.0;
-                for (int i = 0; i < rows; i++) {
-                    sum += vector[i] * mat[i][j];
-                }
-                result[j] = sum;
+
+            if (rows == 0) {
+                vector = new double[0];
+                orientation = VectorOrientation.ROW_MAJOR;
+                return;
             }
-            this.vector = result;
-            this.orientation = VectorOrientation.ROW_MAJOR;
+
+            double[] result = new double[cols];
+
+            if (colmatrix) {
+                for (int j = 0; j < cols; j++) {
+                    SharedVector col = matrix.get(j);
+                    result[j] = this.dot(col);
+                }
+            }else{
+                for (int i=0; i<cols; i++){
+                    double sum=0;
+                    for (int j=0; j<rows; j++){
+                        sum+=vector[j]*matrix.get(j).get(i);
+                    }
+                    result[i]=sum;
+                }
+            }
+            vector = result;
+            orientation = VectorOrientation.ROW_MAJOR;
         } finally {
             writeUnlock();
         }
     }
 
+
+    // helper
     private void mismatchErr(){
         throw new IllegalArgumentException("Illegal operation: dimensions mismatch");
     }
