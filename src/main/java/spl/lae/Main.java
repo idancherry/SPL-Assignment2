@@ -42,6 +42,9 @@ public class Main {
             } catch (IOException exception){
                 exception.printStackTrace();
             }
+        }finally {
+            if (laeEngine!=null)
+                System.out.println(laeEngine.getWorkerReport());
         }
     }
 }
