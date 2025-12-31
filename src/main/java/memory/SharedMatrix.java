@@ -22,6 +22,7 @@ public class SharedMatrix {
 
     // returns the matrix as a 2D array
     public double[][] readRowMajor() {
+        //lock the vectors of a local instead of the matrix - writing threads don't have to wait too much
         SharedVector[] local = vectors;
         acquireAllVectorReadLocks(local);
         try {
@@ -66,6 +67,8 @@ public class SharedMatrix {
 
     // getter
     public SharedVector get(int index) {
+        // taking a local snapshot w/o a lock
+        // this method is used often (using a lock takes more time)
         SharedVector[] local = vectors;
         if (index < 0 || index >= local.length) throw new ArrayIndexOutOfBoundsException();
         return local[index];
@@ -77,6 +80,7 @@ public class SharedMatrix {
 
     // getter
     public VectorOrientation getOrientation() {
+        // locking a local snapshot - allows other threads to access the original matrix
         SharedVector[] local = vectors;
         acquireAllVectorReadLocks(local);
         try {
@@ -122,7 +126,8 @@ public class SharedMatrix {
     }
 
     // helper
-    // If r_c is TRUE=> ROW matrix. Else, COLUMN matrix.
+    // If r_c is TRUE => ROW matrix.
+    // Else, COLUMN matrix.
     private void load(boolean r_c, double[][] matrix){
         if (matrix == null) throw new IllegalArgumentException("Matrix is null.");
         int rows = matrix.length;
@@ -173,6 +178,7 @@ public class SharedMatrix {
     // getter - returns [n,m], where n=number of rows, m=number of columns
     // Additionally verifies that the matrix is valid (dimensions, same orientation)
     public int[] getDim(){
+        // lock a local snapshot
         SharedVector[] local = vectors;
         acquireAllVectorReadLocks(local);
         try{
