@@ -105,7 +105,7 @@ class TiredExecutorTest {
         try {
             List<Runnable> tasks = new ArrayList<>();
 
-            tasks.add(() -> { throw new RuntimeException("boom"); });
+            tasks.add(() -> { throw new RuntimeException("submit task failed"); });
 
             AtomicInteger ok = new AtomicInteger(0);
             tasks.add(ok::incrementAndGet);
